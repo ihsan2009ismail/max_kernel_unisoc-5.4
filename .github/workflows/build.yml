@@ -3,16 +3,13 @@ name: Build Unisoc Kernel
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -20,19 +17,17 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            bc bison build-essential clang lld llvm flex \
-            libssl-dev libelf-dev libdw-dev dwarves \
-            python3 rsync cpio unzip wget git
+          sudo apt-get install -y bc bison build-essential clang lld llvm flex \
+            libssl-dev libelf-dev libdw-dev dwarves python3 rsync cpio unzip wget git
 
       - name: Build kernel
         run: |
           set -eux
           mkdir -p out
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
-            sprd_qogirl6_defconfig
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
-            -j$(nproc) Image.lz4 modules
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 sprd_qogirl6_defconfig
+          ./scripts/config --file out/.config -d CONFIG_BBG
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j$(nproc) Image.lz4 modules
 
       - name: Collect artifacts
         run: |
@@ -48,5 +43,3 @@ jobs:
         with:
           name: unisoc-kernel
           path: artifacts/
-          if-no-files-found: error
-          retention-days: 14
