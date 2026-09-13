@@ -1,0 +1,54 @@
+name: Build Unisoc Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential flex \
+            libelf-dev libssl-dev \
+            python3 rsync unzip zip cpio \
+            git wget curl \
+            clang llvm lld \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu
+
+      - name: Check source tree
+        run: |
+          test -f build.config.gki_unisoc.aarch64
+          test -f Documentation/sprd-gki-diff-config
+          echo "Source tree OK"
+
+      - name: Build kernel
+        env:
+          BUILD_CONFIG: build.config.gki_unisoc.aarch64
+        run: |
+          set -euxo pipefail
+
+          export ROOT_DIR="$GITHUB_WORKSPACE"
+          export KERNEL_DIR="$GITHUB_WORKSPACE"
+
+          ./build/build.sh \
+            --config_only \
+            --build_variant=user
+
+      - name: Show output
+        if: always()
+        run: |
+          echo "=== output ==="
+          find . -maxdepth 4 \
+            \( -name 'Image*' -o -name 'System.map' -o -name 'Module.symvers' -o -name '*.ko' -o -name '.config' \) \
+            -print
