@@ -20,6 +20,14 @@ jobs:
           sudo apt-get install -y bc bison build-essential clang lld llvm flex \
             libssl-dev libelf-dev libdw-dev dwarves python3 rsync cpio unzip wget git
 
+      - name: Add swap
+        run: |
+          sudo fallocate -l 12G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Configure
         run: |
           set -eux
@@ -29,20 +37,22 @@ jobs:
           ./scripts/config --file out/.config -d CONFIG_KSU
           ./scripts/config --file out/.config -d CONFIG_KSU_SUSFS
           ./scripts/config --file out/.config -d CONFIG_KPM
+          ./scripts/config --file out/.config -e CONFIG_MODVERSIONS
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
 
       - name: Build
         run: |
           set -eux
-          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j$(nproc) Image.lz4 modules
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j4 Image.lz4 modules
 
       - name: Collect
         run: |
           set -eux
           mkdir -p artifacts
           cp out/arch/arm64/boot/Image.lz4 artifacts/
-          [ -f out/Module.symvers ] && cp out/Module.symvers artifacts/
+          cp out/Module.symvers artifacts/
           cp out/.config artifacts/config
+          ls -la artifacts/
 
       - name: Upload
         uses: actions/upload-artifact@v4
@@ -50,4 +60,3 @@ jobs:
           name: unisoc-kernel
           path: artifacts/
           if-no-files-found: error
-        
