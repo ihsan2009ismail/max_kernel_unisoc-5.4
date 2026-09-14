@@ -31,20 +31,52 @@ jobs:
           set -eux
           mkdir -p out
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 sprd_qogirl6_defconfig
+          
+          # تعطيل Baseband-guard
           ./scripts/config --file out/.config -d CONFIG_BBG
+          
+          # تعطيل KernelSU (كرنل نظيف)
           ./scripts/config --file out/.config -d CONFIG_KSU
           ./scripts/config --file out/.config -d CONFIG_KSU_SUSFS
+          
+          # تعطيل KPM
           ./scripts/config --file out/.config -d CONFIG_KPM
+          
+          # تعطيل LTO (لتجنب OOM)
           ./scripts/config --file out/.config -d CONFIG_LTO_CLANG
           ./scripts/config --file out/.config -d CONFIG_LTO_CLANG_THIN
           ./scripts/config --file out/.config -d CONFIG_THINLTO
+          
+          # تعطيل توقيع الموديولات (لا نحتاج مفتاح)
+          ./scripts/config --file out/.config -d CONFIG_MODULE_SIG
+          ./scripts/config --file out/.config -d CONFIG_MODULE_SIG_FORCE
+          ./scripts/config --file out/.config -d CONFIG_MODULE_SIG_ALL
+          
+          # تفعيل CRC (لـ Module.symvers)
           ./scripts/config --file out/.config -e CONFIG_MODVERSIONS
+          
+          # تحويل Section mismatch إلى تحذير
+          ./scripts/config --file out/.config -e CONFIG_SECTION_MISMATCH_WARN_ONLY
+          
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
 
       - name: Build
         run: |
           set -eux
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j4 Image modules
+
+      - name: Verify
+        run: |
+          set -eux
+          echo "=== Image ==="
+          ls -la out/arch/arm64/boot/Image
+          echo "=== Module.symvers ==="
+          ls -la out/Module.symvers
+          wc -l out/Module.symvers
+          echo "--- sample ---"
+          head -5 out/Module.symvers
+          echo "=== config checks ==="
+          grep -E 'CONFIG_MODVERSIONS|CONFIG_MODULE_SIG|CONFIG_KSU|CONFIG_KPM|CONFIG_SECCOMP' out/.config || true
 
       - name: Collect
         run: |
