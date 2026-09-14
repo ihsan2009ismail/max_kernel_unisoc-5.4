@@ -26,7 +26,9 @@ jobs:
           mkdir -p out
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 sprd_qogirl6_defconfig
           ./scripts/config --file out/.config -d CONFIG_BBG
+          ./scripts/config --file out/.config -d CONFIG_KSU
           ./scripts/config --file out/.config -d CONFIG_KSU_SUSFS
+          ./scripts/config --file out/.config -d CONFIG_KPM
           make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
 
       - name: Build
@@ -48,3 +50,4 @@ jobs:
           name: unisoc-kernel
           path: artifacts/
           if-no-files-found: error
+        
