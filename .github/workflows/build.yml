@@ -1,18 +1,64 @@
-- name: Configure
-  run: |
-    set -eux
-    mkdir -p out
-    make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 sprd_qogirl6_defconfig
-    ./scripts/config --file out/.config -d CONFIG_BBG
-    ./scripts/config --file out/.config -d CONFIG_KSU
-    ./scripts/config --file out/.config -d CONFIG_KSU_SUSFS
-    ./scripts/config --file out/.config -d CONFIG_KPM
-    ./scripts/config --file out/.config -d CONFIG_LTO_CLANG
-    ./scripts/config --file out/.config -d CONFIG_LTO_CLANG_THIN
-    ./scripts/config --file out/.config -d CONFIG_THINLTO
-    ./scripts/config --file out/.config -e CONFIG_MODVERSIONS
-    make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+name: Build Unisoc Kernel
 
-- name: Build
-  run: |
-    make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j4 Image modules
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential clang lld llvm flex \
+            libssl-dev libelf-dev libdw-dev dwarves python3 rsync cpio unzip wget git
+
+      - name: Add swap
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
+      - name: Configure
+        run: |
+          set -eux
+          mkdir -p out
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 sprd_qogirl6_defconfig
+          ./scripts/config --file out/.config -d CONFIG_BBG
+          ./scripts/config --file out/.config -d CONFIG_KSU
+          ./scripts/config --file out/.config -d CONFIG_KSU_SUSFS
+          ./scripts/config --file out/.config -d CONFIG_KPM
+          ./scripts/config --file out/.config -d CONFIG_LTO_CLANG
+          ./scripts/config --file out/.config -d CONFIG_LTO_CLANG_THIN
+          ./scripts/config --file out/.config -d CONFIG_THINLTO
+          ./scripts/config --file out/.config -e CONFIG_MODVERSIONS
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 olddefconfig
+
+      - name: Build
+        run: |
+          set -eux
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 -j4 Image modules
+
+      - name: Collect
+        run: |
+          set -eux
+          mkdir -p artifacts
+          cp out/arch/arm64/boot/Image artifacts/
+          cp out/Module.symvers artifacts/
+          cp out/.config artifacts/config
+          ls -la artifacts/
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: unisoc-kernel
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
