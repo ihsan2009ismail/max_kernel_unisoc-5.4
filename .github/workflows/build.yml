@@ -21,12 +21,9 @@ jobs:
             libssl-dev libelf-dev libdw-dev dwarves python3 rsync cpio unzip wget git
 
       - name: Add swap
-        run: |
-          sudo fallocate -l 12G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
 
       - name: Configure
         run: |
